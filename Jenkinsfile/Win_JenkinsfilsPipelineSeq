@@ -1,0 +1,79 @@
+pipeline{
+    agent{
+        label "win"
+    }
+    stages{
+        stage("Android源码同步"){
+            steps{
+                bat """
+                    if exist AndroidSampleApp (
+                        echo "已经存在AndroidSampleApp, 跳过！"
+                    ) else (
+                        md AndroidSampleApp
+                    )
+                """
+                dir("AndroidSampleApp"){
+                    git branch:"master", url:"git@github.com:Bananadurian/AndroidSampleApp.git"
+                }
+            }
+
+        }
+        stage("Android编译打包"){
+            steps{
+                bat """
+                    cd AndroidSampleApp
+                    gradlew --stacktrace clean assembleDebug
+                """ 
+            }
+
+        }
+        stage("Android应用部署到设备"){
+            steps{
+                bat """
+                    ::. /etc/profile
+                    ::apk相对job的路径
+                    ::apk_path = ./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk
+                    adb install -r ./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk
+                """
+                sleep 5
+                
+            }
+
+        }
+        stage("自动化测试源码同步"){
+            steps{
+                bat """
+                    if exist AppUIAutotest (
+                        echo "已经存在AppUIAutotest, 跳过！"
+                    ) else (
+                        md AppUIAutotest
+                    )
+                """                
+                dir("AppUIAutotest"){
+                    git branch:"main", url:"git@github.com:Bananadurian/AppUIAutotest.git"
+                }
+            }
+
+        }
+        stage("开始自动化测试"){
+            steps{
+                bat """
+                    ::. /etc/profile
+                    cd AppUIAutotest
+                    python main.py
+                """
+            }
+        }
+        stage("发布测试包"){
+            steps{
+                archiveArtifacts artifacts: "AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk"
+            }
+        }
+        stage("邮件通知"){
+            steps{
+                emailext body: '$DEFAULT_CONTENT', subject: '$DEFAULT_SUBJECT', to: '$DEFAULT_RECIPIENTS'
+            }
+        }
+        
+    }
+}

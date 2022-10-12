@@ -1,0 +1,73 @@
+pipeline{
+    agent{
+        label "built-in"
+    }
+    stages{
+        stage("Android源码同步"){
+            steps{
+                sh "mkdir -p AndroidSampleApp"
+                dir("AndroidSampleApp"){
+                    git branch:"master", url:"git@github.com:Bananadurian/AndroidSampleApp.git"
+                }
+            }
+
+        }
+        stage("Android编译打包"){
+            steps{
+                sh """
+                    . /etc/profile
+                    cd AndroidSampleApp
+                    whoami
+                    bash gradlew --stacktrace clean assembleDebug
+                """ 
+            }
+
+        }
+        stage("Android应用部署到设备"){
+            steps{
+                sh """
+                    . /etc/profile
+                    # apk相对job的路径
+                    apk_path = ./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk
+                    {
+                        adb uninstall com.appsflyer.androidsampleapp
+                    }  || {
+                        echo "没有安装com.appsflyer.androidsampleapp, 卸载跳过"
+                    }
+                    sleep 5
+                    adb install -r $apk_path
+                """
+            }
+
+        }
+        stage("自动化测试源码同步"){
+            steps{
+                sh "mkdir -p AppUIAutotest"
+                dir("AppUIAutotest"){
+                    git branch:"main", url:"git@github.com:Bananadurian/AppUIAutotest.git"
+                }
+            }
+
+        }
+        stage("开始自动化测试"){
+            steps{
+                sh """
+                    . /etc/profile
+                    cd AppUIAutotest
+                    python3.8 main.py
+                """
+            }
+        }
+        stage("发布测试包"){
+            steps{
+                archiveArtifacts artifacts: "./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk"
+            }
+        }
+        stage("邮件通知"){
+            steps{
+                emailext body: '$DEFAULT_CONTENT', recipientProviders: [[$class: "RequesterRecipientProvider"]], subject: '$DEFAULT_SUBJECT'
+            }
+        }
+        
+    }
+}
