@@ -7,5 +7,5 @@
 ##  2. 目录
 
 JenkinsfilsPipelineSeq: Jenkinsfile文件，用于执行pipeline
-
+local.properties：wsl中可能需要的Android环境变量
 

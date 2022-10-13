@@ -1,6 +1,6 @@
 pipeline{
     agent{
-        label "built-in"
+        label "wsl"
     }
     stages{
         stage("Android源码同步"){
@@ -15,7 +15,7 @@ pipeline{
         stage("Android编译打包"){
             steps{
                 sh """
-                    . /etc/profile
+                    # . /etc/profile
                     cd AndroidSampleApp
                     whoami
                     bash gradlew --stacktrace clean assembleDebug
@@ -26,16 +26,18 @@ pipeline{
         stage("Android应用部署到设备"){
             steps{
                 sh """
-                    . /etc/profile
+                    # . /etc/profile
                     # apk相对job的路径
-                    apk_path = ./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk
-                    {
+                    # apk_path = ./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk
+                    # adb命令环境变量
+                    export PATH=$PATH:/usr/lib/AndroidSDK/platform-tools
+                    {   
                         adb uninstall com.appsflyer.androidsampleapp
                     }  || {
                         echo "没有安装com.appsflyer.androidsampleapp, 卸载跳过"
                     }
                     sleep 5
-                    adb install -r $apk_path
+                    adb install -r ./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk
                 """
             }
 
@@ -52,7 +54,7 @@ pipeline{
         stage("开始自动化测试"){
             steps{
                 sh """
-                    . /etc/profile
+                    # . /etc/profile
                     cd AppUIAutotest
                     python3.8 main.py
                 """
@@ -60,12 +62,12 @@ pipeline{
         }
         stage("发布测试包"){
             steps{
-                archiveArtifacts artifacts: "./AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk"
+                archiveArtifacts artifacts: "AndroidSampleApp/app/build/outputs/apk/debug/app-debug.apk"
             }
         }
         stage("邮件通知"){
             steps{
-                emailext body: '$DEFAULT_CONTENT', recipientProviders: [[$class: "RequesterRecipientProvider"]], subject: '$DEFAULT_SUBJECT'
+                emailext body: '$DEFAULT_CONTENT', subject: '$DEFAULT_SUBJECT', to: '$DEFAULT_RECIPIENTS'
             }
         }
         
