@@ -1,0 +1,26 @@
+pipeline{
+    agent{
+        label "wsl"
+    }
+    stages{
+        stage("Android源码同步"){
+            steps{
+                sh "echo 'hello'"
+                }
+            }
+
+        
+        stage("Android编译打包"){
+            steps{
+                sh """
+                    # . /etc/profile
+                    whoami
+                    pwd
+                    $PATH
+                    adb devices
+                """ 
+            }
+
+        }
+    }
+}
